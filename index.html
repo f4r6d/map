@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8" />
+    <title>اهم</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body { margin: 0; display: flex; font-family: sans-serif; direction: rtl; }
+        #sidebar {
+            width: 300px;
+            padding: 1rem;
+            background: #f7f7f7;
+            height: 100vh;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+        #map { flex: 1; height: 100vh; }
+        h1 { text-align: center; font-size: 1.5rem; margin-bottom: 1rem; }
+        select { width: 100%; height: 400px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h1>اهم</h1>
+    <label for="stations">انتخاب ایستگاه‌ها:</label>
+    <select id="stations" multiple></select>
+</div>
+<div id="map"></div>
+
+<script>
+    const map = L.map('map').setView([35.7, 51.4], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:'&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let polyline = null;
+    const markers = {};
+    const allStations = [];
+
+    // Load stations from local JSON file
+    fetch('stations.json')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('stations');
+
+            data.forEach(st => {
+                const id = st.name;
+                const name = st.translations.fa;
+                const lat = parseFloat(st.latitude);
+                const lng = parseFloat(st.longitude);
+
+                allStations.push({ id, name, lat, lng });
+
+                // Add option to select
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = name;
+                select.appendChild(opt);
+
+                // Add blue marker to map
+                const marker = L.circleMarker([lat, lng], {
+                    color: 'blue',
+                    radius: 5
+                }).addTo(map).bindPopup(name);
+
+                markers[id] = marker;
+            });
+        });
+
+    document.getElementById('stations').addEventListener('change', (event) => {
+        const selected = Array.from(event.target.selectedOptions).map(o => o.value);
+
+        // Update marker colors
+        allStations.forEach(st => {
+            if (markers[st.id]) {
+                markers[st.id].setStyle({
+                    color: selected.includes(st.id) ? 'red' : 'blue'
+                });
+            }
+        });
+
+        // Remove old line
+        if (polyline) {
+            map.removeLayer(polyline);
+        }
+
+        // Draw new polyline
+        const selectedCoords = selected.map(id => {
+            const station = allStations.find(s => s.id === id);
+            return [station.lat, station.lng];
+        });
+
+        if (selectedCoords.length >= 2) {
+            polyline = L.polyline(selectedCoords, { color: 'green' }).addTo(map);
+        }
+    });
+</script>
+
+</body>
+</html>
